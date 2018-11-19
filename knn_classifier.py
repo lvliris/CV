@@ -71,6 +71,54 @@ if __name__ == '__main__':
     X_train_folds = np.split(X_train, num_folds)
     y_train_folds = np.split(y_train, num_folds)
 
+    # save the results
     k_to_accuracy = {}
 
-    
+    # find the best k by cross-validation
+    classifier = KNearestNeighbor()
+    for k in k_chioces:
+        accuracies = []
+        for fold in range(num_folds):
+            X_temp = X_train_folds[:]
+            y_temp = y_train_folds[:]
+
+            X_validate_fold = X_temp.pop(fold)
+            y_validate_fold = y_temp.pop(fold)
+
+            X_temp = np.array([y for x in X_temp for y in x])
+            y_temp = np.array([y for x in y_temp for y in x])
+
+            classifier.train(X_temp, y_temp, k)
+
+            y_validate_pred = classifier.predict_labels(X_validate_fold, k)
+            num_correct = np.sum(y_validate_pred == y_validate_fold)
+            accuracies[fold] = float(num_correct) / len(y_validate_fold)
+        k_to_accuracy[k] = accuracies
+
+    # print the accuracy
+    for k in sorted(k_to_accuracy):
+        for accuracy in k_to_accuracy[k]:
+            print('k = %d, accuracy: %f' % (k, accuracy))
+
+    # visualize the results
+    for k in k_chioces:
+        accuracies = k_to_accuracy[k]
+        plt.scatter([k]*len(accuracies), accuracies)
+
+    # plot the trend line with error bars that correspond to standard and mean
+    accuracies_mean = np.array([np.mean(v) for k, v in sorted(k_to_accuracy)])
+    accuracies_std = np.array([np.std(v) for k, v in sorted(k_to_accuracy)])
+    plt.errorbar(k_chioces, accuracies_mean, yerr=accuracies_std)
+    plt.title('Cross-validation on k')
+    plt.xlabel('k')
+    plt.ylabel('accuracies')
+    plt.show()
+
+    # show the best classifier
+    best_k = 10
+    classifier = KNearestNeighbor()
+    classifier.train(X_train, y_train)
+    y_test_pred = classifier.predict_labels(X_test, k=best_k)
+    num_correct = np.sum(y_test_pred == y_test)
+    accuracy = float(num_correct) / len(y_test)
+    print('Got best accuracy: %f' % accuracy)
