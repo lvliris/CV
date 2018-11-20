@@ -1,4 +1,5 @@
 from linear_svm import svm_loss_vectorized
+from softmax import softmax_loss_vectorized
 from data_utils import load_CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,13 +7,13 @@ import time
 import math
 
 
-class LinearClassifier():
+class LinearClassifier(object):
     def __init__(self):
         self.W = None
 
     def train(self, X, y, learning_rate=1e-3, reg=1e-5, num_iters=100, batch_size=200, verbose=False):
         """
-        Train this linear classifier with stochastic gradient descent.
+        Train this svm classifier with stochastic gradient descent.
         :param X: numpy array, shape (N, D), training examples
         :param y: numpy array, shape (N,), labels
         :param learning_rate: float
@@ -55,8 +56,19 @@ class LinearClassifier():
         return svm_loss_vectorized(self.W, X, y, reg)
 
 
+class LinearSVM(LinearClassifier):
+    def loss(self, X, y, reg):
+        return svm_loss_vectorized(self.W, X, y, reg)
+
+
+class Softmax(LinearClassifier):
+    def loss(self, X, y, reg):
+        return softmax_loss_vectorized(X, y, reg)
+
+
 if __name__ == '__main__':
-    classifier = LinearClassifier()
+    # classifier = LinearSVM()
+    classifier = Softmax()
     X_train, y_train, X_test, y_test = load_CIFAR10('cifar-10-batches-py')
 
     tic = time.time()
@@ -91,7 +103,7 @@ if __name__ == '__main__':
 
     for lr in learning_rates:
         for reg in regularization_strengths:
-            svm = LinearClassifier()
+            svm = LinearSVM()
             svm.train(X_train, y_train, learning_rate=lr, reg=reg, num_iters=100, verbose=True)
             y_train_pred = svm.predict(X_train)
             accuracy_train = np.mean(y_train == y_train_pred)
