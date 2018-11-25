@@ -43,13 +43,16 @@ class LinearClassifier():
 
             # print the optimize process
             if verbose and iter % 100 == 0:
-                print 'iteration %d / %d, loss %f' % (iter, num_iters, loss)
+                print('iteration %d / %d, loss %f' % (iter, num_iters, loss))
 
-            return loss_history
+        return loss_history
 
     def predict(self, X):
         pred_y = X.dot(self.W)
-        return np.max(pred_y, axis=1)
+        max_y = np.max(pred_y, axis=1)
+        max_y = max_y.reshape(max_y.shape[0], -1)
+        x, y = np.where(pred_y == max_y)
+        return y
 
     def loss(self, X, y, reg):
         return svm_loss_vectorized(self.W, X, y, reg)
@@ -57,12 +60,51 @@ class LinearClassifier():
 
 if __name__ == '__main__':
     classifier = LinearClassifier()
-    X_train, y_train, X_test, y_test = load_CIFAR10('cifar-10-batches-py')
+    X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
+
+    num_training = 49000
+    num_validation = 1000
+    num_test = 1000
+    num_dev = 500
+
+    # choose some data for validation
+    mask = range(num_training, num_training + num_validation)
+    X_val = X_train[mask]
+    y_val = y_train[mask]
+
+    # choose some data for development randomly
+    mask = np.random.choice(num_training, num_dev, replace=False)
+    X_dev = X_train[mask]
+    y_dev = y_train[mask]
+
+    # use the formal num_test data for testing
+    mask = range(num_test)
+    X_test = X_test[mask]
+    y_test = y_test[mask]
+
+    # reshape the data
+    X_train = X_train.reshape([X_train.shape[0], -1])
+    X_val = X_val.reshape([X_val.shape[0], -1])
+    X_test = X_test.reshape([X_test.shape[0], -1])
+    X_dev = X_dev.reshape([X_dev.shape[0], -1])
+
+    # subtract the mean value
+    mean_img = np.mean(X_train, axis=0)
+    X_train -= mean_img
+    X_val -= mean_img
+    X_test -= mean_img
+    X_dev -= mean_img
+
+    # add a bias
+    X_train = np.hstack([X_train, np.ones((X_train.shape[0], 1))])
+    X_val = np.hstack([X_val, np.ones((X_val.shape[0], 1))])
+    X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
+    X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
 
     tic = time.time()
     loss = classifier.train(X_train, y_train, learning_rate=1e-7, reg=2.5e-4, num_iters=1500, verbose=True)
     toc = time.time()
-    print 'that takes %fs' % (toc - tic)
+    print('that takes %fs' % (toc - tic))
 
     # plot the loss
     plt.plot(loss)
@@ -72,27 +114,27 @@ if __name__ == '__main__':
 
     # perform prediction
     y_train_pred = classifier.predict(X_train)
-    print 'training accuracy: %f' % (np.mean(y_train == y_train_pred), )
+    print('training accuracy: %f' % (np.mean(y_train == y_train_pred), ))
     y_test_pred = classifier.predict(X_test)
-    print 'testing accuracy: %f' % (np.mean(y_test == y_test_pred), )
+    print('testing accuracy: %f' % (np.mean(y_test == y_test_pred), ))
 
     # adjust the hypeprameters using validation data set
     learning_rates = [2e-7, 0.75e-7, 1.5e-7, 1.25e-7] 
-    regularization_strengths = [3e-4, 3.25e-4, 3.5e-4, 4e-4, 4.25e-4]
+    regularization_strengths = [3e4, 3.25e4, 3.5e4, 4e4, 4.25e4]
     
     results = {}
     best_val = -1
     best_svm = None
 
-    X_val = X_train[-10000, ::]
-    y_val = y_train[-10000, ::]
-    X_train = X_train[:-10000, :]
-    y_train = y_train[:-10000, :]
+    # X_val = X_train[-10000::, :]
+    # y_val = y_train[-10000::]
+    # X_train = X_train[:-10000:, :]
+    # y_train = y_train[:-10000:]
 
     for lr in learning_rates:
         for reg in regularization_strengths:
             svm = LinearClassifier()
-            svm.train(X_train, y_train, learning_rate=lr, reg=reg, num_iters=100, verbose=True)
+            svm.train(X_train, y_train, learning_rate=lr, reg=reg, num_iters=1000, verbose=True)
             y_train_pred = svm.predict(X_train)
             accuracy_train = np.mean(y_train == y_train_pred)
             y_val_pred = svm.predict(X_val)
@@ -156,3 +198,4 @@ if __name__ == '__main__':
         plt.imshow(wimg.astype('uint8'))
         plt.axis('off')
         plt.title(classes[i])
+    plt.show()
