@@ -52,14 +52,16 @@ class TwoLayerNet(object):
 
         return loss
 
-    def train(self, X, y, learning_rate=1e-5, reg=0.001, iters=1000, batch_size=200, verbose=False):
-        num_train = X.shape[0]
+    def train(self, X_train, y_train, X_val, y_val, learning_rate=1e-5, reg=0.001, num_iters=1000, batch_size=200, verbose=False):
+        num_train = X_train.shape[0]
         batch_indices = np.random.choice(np.arange(num_train), batch_size)
-        X_batch = X[batch_indices]
-        y_batch = y[batch_indices]
+        X_batch = X_train[batch_indices]
+        y_batch = y_train[batch_indices]
 
         loss_history = []
-        for i in range(iters):
+        train_accuracy_history = []
+        val_accuracy_history = []
+        for i in range(num_iters):
             loss = self.loss(X_batch, y_batch, reg)
             loss_history.append(loss)
 
@@ -71,8 +73,17 @@ class TwoLayerNet(object):
 
             if verbose and i % 100 == 0:
                 print('iteration %d, loss: %f' % (i, loss))
+                y_train_pred = self.predict(X_train)
+                train_accuracy_history.append(np.mean(y_train == y_train_pred))
+                y_val_pred = self.predict(X_val)
+                val_accuracy_history.append(np.mean(y_val == y_val_pred))
 
-        return loss_history
+        state = {}
+        state['loss_history'] = loss_history
+        state['train_accuracy_history'] = train_accuracy_history
+        state['val_accuracy_history'] = val_accuracy_history
+
+        return state
 
     def predict(self, X):
         # calculate the media results use ReLU activation function
@@ -82,11 +93,14 @@ class TwoLayerNet(object):
         # calculate the output score
         scores = a1.dot(self.param['W2']) + self.param['b2']
 
-        # calculate the loss and regularization
+        # calculate the probabilities
         exp_score = np.exp(scores)
         probs = exp_score / np.sum(exp_score, axis=1, keepdims=True)
+        max_probs = np.max(probs, axis=1, keepdims=True)
 
-        return np.max(probs, axis=1)
+        x, y = np.where(probs == max_probs)
+
+        return y
 
 
 def init_toy_model(input_size, hidden_size, output_size):

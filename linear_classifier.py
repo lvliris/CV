@@ -1,5 +1,6 @@
 from linear_svm import svm_loss_vectorized
 from softmax import softmax_loss_vectorized
+from neural_net import TwoLayerNet
 from data_utils import load_CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,18 +71,26 @@ class Softmax(LinearClassifier):
 
 
 if __name__ == '__main__':
-    classifier = LinearClassifier()
+    # classifier = LinearClassifier()
     X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
 
-    num_training = 49000
-    num_validation = 1000
+    num_training = 4900
+    num_validation = 100
     num_test = 1000
-    num_dev = 500
+    num_dev = 50
+
+    # choose some data for training
+    mask = np.random.choice(X_train.shape[0], 5000, replace=False)
+    X_train = X_train[mask]
+    y_train = y_train[mask]
 
     # choose some data for validation
     mask = range(num_training, num_training + num_validation)
     X_val = X_train[mask]
     y_val = y_train[mask]
+    mask = range(num_training)
+    X_train = X_train[mask]
+    y_train = y_train[mask]
 
     # choose some data for development randomly
     mask = np.random.choice(num_training, num_dev, replace=False)
@@ -107,21 +116,23 @@ if __name__ == '__main__':
     X_dev -= mean_img
 
     # add a bias
-    X_train = np.hstack([X_train, np.ones((X_train.shape[0], 1))])
-    X_val = np.hstack([X_val, np.ones((X_val.shape[0], 1))])
-    X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
-    X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
+    # X_train = np.hstack([X_train, np.ones((X_train.shape[0], 1))])
+    # X_val = np.hstack([X_val, np.ones((X_val.shape[0], 1))])
+    # X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
+    # X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
 
+    classifier = TwoLayerNet(X_train.shape[1], 50, 10)
     tic = time.time()
-    loss = classifier.train(X_train, y_train, learning_rate=1e-7, reg=2.5e-4, num_iters=1500, verbose=True)
+    # overfit one data point
+    # X = X_train[0:2]
+    # y = y_train[0:2]
+    # state = classifier.train(X, y, X, y, batch_size=2, num_iters=1000, verbose=True)
+    state = classifier.train(X_train, y_train, X_val, y_val,
+                             learning_rate=1e-3, reg=5,
+                             num_iters=1000, batch_size=2000,
+                             verbose=True)
     toc = time.time()
     print('that takes %fs' % (toc - tic))
-
-    # plot the loss
-    plt.plot(loss)
-    plt.xlabel('iterations')
-    plt.ylabel('loss')
-    plt.show()
 
     # perform prediction
     y_train_pred = classifier.predict(X_train)
@@ -129,9 +140,24 @@ if __name__ == '__main__':
     y_test_pred = classifier.predict(X_test)
     print('testing accuracy: %f' % (np.mean(y_test == y_test_pred), ))
 
-    # adjust the hypeprameters using validation data set
-    learning_rates = [2e-7, 0.75e-7, 1.5e-7, 1.25e-7] 
-    regularization_strengths = [3e4, 3.25e4, 3.5e4, 4e4, 4.25e4]
+    # plot the loss and accuracy
+    plt.subplot(2, 1, 1)
+    plt.plot(state['loss_history'])
+    plt.title('loss history')
+    plt.xlabel('iterations')
+    plt.ylabel('loss')
+
+    plt.subplot(2, 1, 2)
+    plt.plot(state['train_accuracy_history'], label='train')
+    plt.plot(state['val_accuracy_history'], label='val')
+    plt.title('accuracy history')
+    plt.xlabel('epochs')
+    plt.ylabel('classification accuracy')
+    plt.show()
+
+    # adjust the hyperparameters using validation data set
+    learning_rates = [5e-3, 2e-3, 1e-3, 1e-4]
+    regularization_strengths = [3e-1, 5e-1, 3, 5, 10]
     
     results = {}
     best_val = -1
@@ -144,8 +170,11 @@ if __name__ == '__main__':
 
     for lr in learning_rates:
         for reg in regularization_strengths:
-            svm = LinearClassifier()
-            svm.train(X_train, y_train, learning_rate=lr, reg=reg, num_iters=1000, verbose=True)
+            svm = TwoLayerNet(X_train.shape[1], 100, 10)
+            svm.train(X_train, y_train, X_val, y_val,
+                      learning_rate=lr, reg=reg,
+                      num_iters=1000, batch_size=2000,
+                      verbose=True)
             y_train_pred = svm.predict(X_train)
             accuracy_train = np.mean(y_train == y_train_pred)
             y_val_pred = svm.predict(X_val)
