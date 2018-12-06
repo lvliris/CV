@@ -1,4 +1,5 @@
 from linear_svm import svm_loss_vectorized
+from softmax import softmax_loss_vectorized
 from data_utils import load_CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,7 +7,7 @@ import time
 import math
 
 
-class LinearClassifier():
+class LinearClassifier(object):
     def __init__(self):
         self.W = None
 
@@ -56,6 +57,16 @@ class LinearClassifier():
 
     def loss(self, X, y, reg):
         return svm_loss_vectorized(self.W, X, y, reg)
+
+
+class LinearSVM(LinearClassifier):
+    def loss(self, X, y, reg):
+        return svm_loss_vectorized(self.W, X, y, reg)
+
+
+class Softmax(LinearClassifier):
+    def loss(self, X, y, reg):
+        return softmax_loss_vectorized(X, y, reg)
 
 
 if __name__ == '__main__':
