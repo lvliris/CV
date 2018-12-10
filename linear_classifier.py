@@ -74,15 +74,15 @@ if __name__ == '__main__':
     # classifier = LinearClassifier()
     X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
 
-    num_training = 4900
-    num_validation = 100
+    num_training = 49000
+    num_validation = 1000
     num_test = 1000
     num_dev = 50
 
     # choose some data for training
-    mask = np.random.choice(X_train.shape[0], 5000, replace=False)
+    '''mask = np.random.choice(X_train.shape[0], 5000, replace=False)
     X_train = X_train[mask]
-    y_train = y_train[mask]
+    y_train = y_train[mask]'''
 
     # choose some data for validation
     mask = range(num_training, num_training + num_validation)
@@ -121,15 +121,15 @@ if __name__ == '__main__':
     # X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
     # X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
 
-    classifier = TwoLayerNet(X_train.shape[1], 50, 10)
+    classifier = TwoLayerNet(X_train.shape[1], 500, 10)
     tic = time.time()
     # overfit one data point
     # X = X_train[0:2]
     # y = y_train[0:2]
     # state = classifier.train(X, y, X, y, batch_size=2, num_iters=1000, verbose=True)
     state = classifier.train(X_train, y_train, X_val, y_val,
-                             learning_rate=1e-3, reg=5,
-                             num_iters=1000, batch_size=2000,
+                             learning_rate=2e-3, learning_rate_decay=0.95,
+                             reg=0.5, num_iters=1000, batch_size=500,
                              verbose=True)
     toc = time.time()
     print('that takes %fs' % (toc - tic))
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     plt.show()
 
     # adjust the hyperparameters using validation data set
-    learning_rates = [5e-3, 2e-3, 1e-3, 1e-4]
+    learning_rates = [2e-3, 1e-3, 1e-4]
     regularization_strengths = [3e-1, 5e-1, 3, 5, 10]
     
     results = {}
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     for lr in learning_rates:
         for reg in regularization_strengths:
-            svm = TwoLayerNet(X_train.shape[1], 100, 10)
+            svm = TwoLayerNet(X_train.shape[1], 500, 10)
             svm.train(X_train, y_train, X_val, y_val,
                       learning_rate=lr, reg=reg,
                       num_iters=1000, batch_size=2000,
@@ -225,7 +225,7 @@ if __name__ == '__main__':
     print('linear SVM on raw pixels final test set accuracy: %f' % test_accuracy)
 
     # visualize the weights
-    w = best_svm.W[:-1, :]   # strip out the bias
+    w = best_svm.param['W1']   # strip out the bias
     w = w.reshape(32, 32, 3, 10)
     w_min, w_max = np.min(w), np.max(w)
     classes = ['plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']

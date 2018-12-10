@@ -7,6 +7,9 @@ from linear_svm import svm_loss_naive
 
 class TwoLayerNet(object):
     def __init__(self, input_size, hidden_size, num_classes, std=1e-1):
+        self.momentum = 0.95
+        self.learning_rate = 1e-3
+
         self.param = {}
         self.param['W1'] = 0.001 * np.random.randn(input_size, hidden_size)
         self.param['b1'] = 0.001 * np.random.randn(hidden_size)
@@ -18,6 +21,11 @@ class TwoLayerNet(object):
         self.param['dW2'] = np.zeros([hidden_size, num_classes])
         self.param['db2'] = np.random.randn(num_classes)
 
+        self.param['mW1'] = np.zeros([input_size, hidden_size])
+        self.param['mb1'] = np.zeros(hidden_size)
+        self.param['mW2'] = np.zeros([hidden_size, num_classes])
+        self.param['mb2'] = np.random.randn(num_classes)
+
     def loss(self, X, y, reg=0.05):
         N = X.shape[0]
         # calculate the media results use ReLU activation function
@@ -26,11 +34,12 @@ class TwoLayerNet(object):
 
         # calculate the output score
         scores = a1.dot(self.param['W2']) + self.param['b2']
+        max_scores = np.max(scores, axis=1, keepdims=True)
 
         # calculate the loss and regularization
-        exp_score = np.exp(scores)
+        exp_score = np.exp(scores - max_scores)
         probs = exp_score / np.sum(exp_score, axis=1, keepdims=True)
-        loss = np.sum(-np.log(probs[range(N), y])) / N
+        loss = np.sum(-np.log(probs[range(N), y] + 1e-8)) / N
 
         # calculate the gradient
         dscores = probs
@@ -39,6 +48,7 @@ class TwoLayerNet(object):
 
         self.param['dW2'] = np.dot(a1.T, dscores)
         self.param['db2'] = np.sum(dscores, axis=0)
+
         da1 = np.dot(dscores, self.param['W2'].T)
         # activation function gradient
         da1[a1 <= 0] = 0
@@ -50,10 +60,20 @@ class TwoLayerNet(object):
         self.param['dW1'] += reg * self.param['W1']
         self.param['dW2'] += reg * self.param['W2']
 
+        # momentum
+        self.param['mW2'] = self.momentum * self.param['mW2'] + self.param['dW2']
+        self.param['mb2'] = self.momentum * self.param['mb2'] + self.param['db2']
+
+        self.param['mW1'] = self.momentum * self.param['mW1'] + self.param['dW1']
+        self.param['mb1'] = self.momentum * self.param['mb1'] + self.param['db1']
+
         return loss
 
-    def train(self, X_train, y_train, X_val, y_val, learning_rate=1e-5, reg=0.001, num_iters=1000, batch_size=200, verbose=False):
+    def train(self, X_train, y_train, X_val, y_val, learning_rate=1e-5, learning_rate_decay=0.95,
+              reg=0.001, num_iters=1000, batch_size=200, verbose=False):
         num_train = X_train.shape[0]
+        self.momentum = learning_rate_decay
+        self.learning_rate = learning_rate
         batch_indices = np.random.choice(np.arange(num_train), batch_size)
         X_batch = X_train[batch_indices]
         y_batch = y_train[batch_indices]
@@ -66,10 +86,10 @@ class TwoLayerNet(object):
             loss_history.append(loss)
 
             # update the parameters
-            self.param['W1'] -= learning_rate * self.param['dW1']
-            self.param['b1'] -= learning_rate * self.param['db1']
-            self.param['W2'] -= learning_rate * self.param['dW2']
-            self.param['b2'] -= learning_rate * self.param['db2']
+            self.param['W1'] -= self.learning_rate * self.param['mW1']
+            self.param['b1'] -= self.learning_rate * self.param['mb1']
+            self.param['W2'] -= self.learning_rate * self.param['mW2']
+            self.param['b2'] -= self.learning_rate * self.param['mb2']
 
             if verbose and i % 100 == 0:
                 print('iteration %d, loss: %f' % (i, loss))
@@ -92,9 +112,10 @@ class TwoLayerNet(object):
 
         # calculate the output score
         scores = a1.dot(self.param['W2']) + self.param['b2']
+        max_scores = np.max(scores, axis=1, keepdims=True)
 
         # calculate the probabilities
-        exp_score = np.exp(scores)
+        exp_score = np.exp(scores - max_scores)
         probs = exp_score / np.sum(exp_score, axis=1, keepdims=True)
         max_probs = np.max(probs, axis=1, keepdims=True)
 
