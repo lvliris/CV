@@ -1,6 +1,7 @@
 from linear_svm import svm_loss_vectorized
 from softmax import softmax_loss_vectorized
 from neural_net import TwoLayerNet
+from neural_net import FullConnectedNet
 from data_utils import load_CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,8 +75,8 @@ if __name__ == '__main__':
     # classifier = LinearClassifier()
     X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
 
-    num_training = 49000
-    num_validation = 1000
+    num_training = 4900
+    num_validation = 100
     num_test = 1000
     num_dev = 50
 
@@ -121,7 +122,8 @@ if __name__ == '__main__':
     # X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
     # X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
 
-    classifier = TwoLayerNet(X_train.shape[1], 500, 10)
+    # classifier = TwoLayerNet(X_train.shape[1], 500, 10)
+    classifier = FullConnectedNet()
     tic = time.time()
     # overfit one data point
     # X = X_train[0:2]

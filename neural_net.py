@@ -74,14 +74,16 @@ class TwoLayerNet(object):
         num_train = X_train.shape[0]
         self.momentum = learning_rate_decay
         self.learning_rate = learning_rate
-        batch_indices = np.random.choice(np.arange(num_train), batch_size)
-        X_batch = X_train[batch_indices]
-        y_batch = y_train[batch_indices]
 
         loss_history = []
         train_accuracy_history = []
         val_accuracy_history = []
         for i in range(num_iters):
+            # sample the batch data
+            batch_indices = np.random.choice(np.arange(num_train), batch_size)
+            X_batch = X_train[batch_indices]
+            y_batch = y_train[batch_indices]
+
             loss = self.loss(X_batch, y_batch, reg)
             loss_history.append(loss)
 
@@ -124,6 +126,274 @@ class TwoLayerNet(object):
         return y
 
 
+class Layer(object):
+    def __init__(self):
+        self.W, self.b = None, None
+
+    def forward(self, bottom):
+        pass
+
+    def backward(self, top):
+        pass
+
+
+class FullConnected(Layer):
+    def __init__(self, input_size, output_size):
+        super(FullConnected, self).__init__()
+        self.bottom = None
+        self.type = 'fc'
+        self.momentum = 0.9
+        self.W = 0.01 * np.random.randn(input_size, output_size)
+        self.b = 0.01 * np.random.randn(output_size)
+        self.dW = 0.01 * np.random.randn(input_size, output_size)
+        self.db = 0.01 * np.random.randn(output_size)
+        self.mW = np.zeros([input_size, output_size])
+        self.mb = np.zeros(output_size)
+
+    def forward(self, bottom):
+        self.bottom = bottom.reshape([bottom.shape[0], -1])
+        assert self.bottom.shape[1] == self.W.shape[0]
+        # top = top.reshape([bottom.shape[0], self.W.shape[1]])
+        top = np.dot(self.bottom, self.W) + self.b
+
+        return top
+
+    def backward(self, top):
+        assert top.shape[1] == self.W.shape[1]
+        # bottom = bottom.reshape([top.shape[0], self.W.shape[0]])
+        bottom = np.dot(top, self.W.T)
+
+        self.dW = np.dot(self.bottom.T, top)
+        self.db = np.sum(top, axis=0)
+
+        self.mW = self.momentum * self.mW + self.dW
+        self.mb = self.momentum * self.mb + self.db
+
+        return bottom
+
+
+class ReLU(Layer):
+    def __init__(self):
+        super(ReLU, self).__init__()
+        self.type = 'relu'
+        self.indice = None
+
+    def forward(self, bottom):
+        self.indice = bottom < 0
+        # top = top.reshape(bottom.shape)
+        top = np.maximum(bottom, 0)
+
+        return top
+
+    def backward(self, top):
+        # bottom = bottom.reshape(top.shape)
+        bottom = top
+        bottom[self.indice] = 0
+
+        return bottom
+
+
+class Softmax(Layer):
+    def __init__(self):
+        super(Softmax, self).__init__()
+        self.type = 'softmax'
+
+    def forward(self, bottom):
+        max_score = np.max(bottom, axis=1, keepdims=True)
+        self.prob = np.exp(bottom - max_score)
+        self.prob /= np.sum(self.prob, axis=1, keepdims=True)
+        # top = top.reshape(bottom.shape)
+        top = self.prob
+
+        return top
+
+    def backward(self, top):
+        ak = self.prob * top
+        akv = np.sum(ak, axis=1, keepdims=True)
+        bottom = ak - self.prob * akv
+
+        # dx = np.dot(self.prob.T, self.prob)
+        # diag = np.diag(self.prob[0])
+        # dx = diag - dx
+        # bottom = bottom.reshape(top.shape)
+        # bottom = np.dot(top, dx)
+
+        return bottom
+
+
+class SoftmaxWithLoss(Layer):
+    def __init__(self):
+        super(SoftmaxWithLoss, self).__init__()
+        self.type = 'softmax-with-loss'
+        self.data, self.label = None, None
+
+    def forward(self, bottom):
+        self.data = bottom[0]
+        self.label = bottom[1].astype(int)
+        max_score = np.max(self.data, axis=1, keepdims=True)
+        self.prob = np.exp(self.data - max_score)
+        self.prob /= np.sum(self.prob, axis=1, keepdims=True)
+        N = self.data.shape[0]
+        top = -np.sum(np.log(self.prob + 1e-8) * self.label) / N
+
+        return top
+
+    def backward(self, top):
+        bottom = self.prob
+        bottom -= self.label
+        bottom = top * bottom / self.data.shape[0]
+
+        return bottom
+
+
+class CrossEntropyLoss(Layer):
+    def __init__(self):
+        super(CrossEntropyLoss, self).__init__()
+        self.type = 'cross-entropy'
+        self.data, self.label = None, None
+
+    def forward(self, bottom):
+        self.data = bottom[0]
+        self.label = bottom[1]
+        # top = top.reshape(1)
+        top = -np.sum(self.label * np.log(self.data + 1e-5)) / self.data.shape[0]
+
+        return top
+
+    def backward(self, top):
+        # bottom.reshape(self.data.shape)
+        bottom = -top * self.label / (self.data + 1e-5) / self.data.shape[0]
+
+        return bottom
+
+
+class Net(object):
+    def forward(self, data, label):
+        pass
+
+    def backward(self, loss):
+        pass
+
+    def update(self):
+        pass
+
+    def train(self, data, label, val_data, val_label, learning_rate=1e-3, reg=0.5, iters=1000, verbose=True):
+        pass
+
+    def predict(self, data):
+        pass
+
+
+class FullConnectedNet(Net):
+    def __init__(self, input_size, layer_size, output_size):
+        self.learning_rate = 1e-3
+        self.input_size = input_size
+        self.output_size = output_size
+        self.W2 = 0.0
+        self.loss = 0.0
+        self.layers = []
+        last_size = input_size
+        for hidden_size in layer_size:
+            layer = FullConnected(last_size, hidden_size)
+            self.layers.append(layer)
+            layer = ReLU()
+            self.layers.append(layer)
+            last_size = hidden_size
+
+        # output layer
+        layer = FullConnected(last_size, output_size)
+        self.layers.append(layer)
+        layer = Softmax()
+        self.layers.append(layer)
+
+        # loss layer
+        self.loss_layer = CrossEntropyLoss()
+        # self.loss_layer = SoftmaxWithLoss()
+
+    def forward(self, data, label):
+        bottom = data
+        self.W2 = 0.0
+        for layer in self.layers:
+            top = layer.forward(bottom)
+            bottom = top
+            if layer.W is not None:
+                self.W2 += np.sum(layer.W * layer.W)
+
+        # loss
+        # print 'data.shape, label.shape:', bottom.shape, label.shape
+        bottom = np.stack((bottom, label), axis=0)
+        self.loss = self.loss_layer.forward(bottom)
+
+        return self.loss
+
+    def backward(self, loss):
+        # self.loss_layer.backward(loss, bottom)
+        bottom = self.loss_layer.backward(loss)
+        top = bottom
+
+        for layer in reversed(self.layers):
+            bottom = layer.backward(top)
+            top = bottom
+
+    def update(self):
+        for layer in self.layers:
+            if layer.W is not None:
+                layer.W -= self.learning_rate * layer.dW
+                layer.b -= self.learning_rate * layer.db
+
+    def train(self, data, label, val_data, val_label, learning_rate=1e-3, learning_rate_decay=0.95,
+              reg=0.5, batch_size=200, num_iters=1000, verbose=True):
+        assert data.shape[1] == self.input_size
+        self.learning_rate = learning_rate
+        num_train = data.shape[0]
+        state = {}
+        loss_history = []
+        train_accuracy_history = []
+        val_accuracy_history = []
+
+        num_data = data.shape[0]
+        label_mat = np.zeros([num_data, self.output_size])
+        label_mat[range(num_data), label] = 1
+        for i in range(num_iters):
+            batch_indice = np.random.choice(np.arange(num_train), batch_size)
+            data_batch = data[batch_indice]
+            label_batch = label[batch_indice]
+            self.forward(data, label_mat)
+            self.loss += 0.5 * reg * self.W2
+            loss_history.append(self.loss)
+            self.backward(1)
+            self.update()
+
+            if verbose and i % 100 == 0:
+                print('iteration %d, loss: %f' % (i, self.loss))
+                y_train_pred = self.predict(data)
+                train_accuracy_history.append(np.mean(label == y_train_pred))
+                y_val_pred = self.predict(val_data)
+                val_accuracy_history.append(np.mean(val_label == y_val_pred))
+
+            # if i == 2000:
+            #    self.learning_rate *= 0.1
+
+            state = {}
+            state['loss_history'] = loss_history
+            state['train_accuracy_history'] = train_accuracy_history
+            state['val_accuracy_history'] = val_accuracy_history
+
+        return state
+
+    def predict(self, data):
+        bottom = data
+        top = np.array([])
+        for layer in self.layers:
+            top = layer.forward(bottom)
+            bottom = top
+
+        max_prob = np.max(top, axis=1, keepdims=True)
+        x, y = np.where(top == max_prob)
+
+        return y
+
+
 def init_toy_model(input_size, hidden_size, output_size):
     np.random.seed(0)
     return TwoLayerNet(input_size, hidden_size, output_size, std=1e-1)
@@ -133,6 +403,7 @@ def init_toy_data(num_input, input_size):
     np.random.seed(1)
     X = 10 * np.random.randn(num_input, input_size)
     y = np.array([0, 1, 2, 2, 1])
+    # y = np.array([0])
     return X, y
 
 
@@ -142,7 +413,12 @@ if __name__ == '__main__':
     num_classes = 3
     num_input = 5
 
-    net = init_toy_model(input_size, hidden_size, num_classes)
+    a = np.array([1])
+    b = np.array([2])
+    print a, b
+
+    # net = init_toy_model(input_size, hidden_size, num_classes)
+    net = FullConnectedNet(input_size, [100], num_classes)
     X, y = init_toy_data(num_input, input_size)
 
     # W = 0.0001 * np.random.randn(input_size, num_classes)
@@ -152,7 +428,17 @@ if __name__ == '__main__':
     # f = lambda w: svm_loss_naive(w, X, y, 0.0)[0]
     # gradient_check_sparse(f, W, grad, 10)
 
-    loss = net.train(X, y, learning_rate=1e-1, reg=5e-6, iters=100, verbose=False)
+    state = net.train(X, y, X, y, learning_rate=1e-3, reg=0, num_iters=20000, verbose=True)
+    loss = state['loss_history']
+    train_acc = state['train_accuracy_history']
+    val_acc = state['val_accuracy_history']
+    pred_y = net.predict(X)
+    print(X)
+    print(y)
+    print(pred_y)
+    plt.subplot(211)
     plt.plot(loss)
+    plt.subplot(212)
+    plt.plot(train_acc)
+    plt.plot(val_acc)
     plt.show()
-
