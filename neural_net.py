@@ -196,6 +196,49 @@ class Dropout(Layer):
         return bottom
 
 
+class BatchNormalization(Layer):
+    def __init__(self, shape):
+        super(BatchNormalization, self).__init__()
+        self.alpha = 0.9
+        self.W = np.zeros(shape)
+        self.b = np.zeros(shape)
+        self.dW = np.zeros(shape)
+        self.db = np.zeros(shape)
+        self.mean = np.zeros(shape)
+        self.var = np.zeros(shape)
+        self.batch_mean = np.zeros(shape)
+        self.batch_var = np.zeros(shape)
+        self.bottom = None
+
+    def forward(self, bottom, is_training=True):
+        self.bottom = bottom
+        if is_training:
+            self.batch_mean = np.mean(bottom, axis=0)
+            self.batch_var = np.mean((bottom - self.batch_mean)*(bottom - self.batch_mean))
+            # calculate the expectation of data by moving average
+            self.mean = self.alpha * self.mean + self.batch_mean
+            self.var = self.alpha * self.var + self.batch_var
+        else:
+            self.batch_mean = self.mean
+            self.batch_var = self.var
+
+        self.x_norm = (bottom - self.batch_mean) / np.sqrt(self.batch_var + 1e-8)
+        top = self.W * self.x_norm + self.b
+
+        return top
+
+    def backward(self, top):
+        dx_norm = top * self.W
+        dvar = np.sum(-dx_norm * (self.bottom - self.batch_mean) * 0.5 * np.power(self.batch_var + 1e-8, -1.5), axis=0)
+        dmean = np.sum(-dx_norm / np.sqrt(self.batch_var + 1e-8)) + dvar * np.mean(-2 * (self.bottom - self.batch_mean), axis=0)
+        bottom = dx_norm / np.sqrt(self.batch_var + 1e-8) + dvar * np.mean(2*(self.bottom - self.batch_mean), axis=0) + np.mean(dmean, axis=0)
+
+        self.dW = np.sum(top * self.x_norm, axis=0)
+        self.db = np.sum(top, axis=0)
+
+        return bottom
+
+
 class ReLU(Layer):
     def __init__(self):
         super(ReLU, self).__init__()
