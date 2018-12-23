@@ -172,6 +172,30 @@ class FullConnected(Layer):
         return bottom
 
 
+class Dropout(Layer):
+    def __init__(self, p=0.5):
+        super(Dropout, self).__init__()
+        self.p = p
+        self.dropout_indice = None
+
+    def forward(self, bottom, is_training=True):
+        if is_training:
+            num_data = bottom.shape[1]
+            self.dropout_indice = np.random.choice(num_data, int(num_data * self.p), replace=False)
+            top = bottom
+            top[:, self.dropout_indice] = 0
+        else:
+            top = self.p * bottom
+
+        return top
+
+    def backward(self, top):
+        bottom = top
+        bottom[:, self.dropout_indice] = 0
+
+        return bottom
+
+
 class ReLU(Layer):
     def __init__(self):
         super(ReLU, self).__init__()
@@ -299,6 +323,10 @@ class FullConnectedNet(Net):
             layer = ReLU()
             self.layers.append(layer)
             last_size = hidden_size
+
+        # dropout layer
+        layer = Dropout()
+        self.layers.append(layer)
 
         # output layer
         layer = FullConnected(last_size, output_size)
