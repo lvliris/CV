@@ -1,7 +1,6 @@
 from linear_svm import svm_loss_vectorized
 from softmax import softmax_loss_vectorized
-from neural_net import TwoLayerNet
-from neural_net import FullConnectedNet
+from neural_net import TwoLayerNet, FullConnectedNet, ConvolutionalNet
 from data_utils import load_CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,7 +74,7 @@ if __name__ == '__main__':
     # classifier = LinearClassifier()
     X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
 
-    num_training = 4900
+    num_training = 9900
     num_validation = 100
     num_test = 1000
     num_dev = 50
@@ -104,13 +103,13 @@ if __name__ == '__main__':
     y_test = y_test[mask]
 
     # reshape the data
-    X_train = X_train.reshape([X_train.shape[0], -1])
-    X_val = X_val.reshape([X_val.shape[0], -1])
-    X_test = X_test.reshape([X_test.shape[0], -1])
-    X_dev = X_dev.reshape([X_dev.shape[0], -1])
+    # X_train = X_train.reshape([X_train.shape[0], -1])
+    # X_val = X_val.reshape([X_val.shape[0], -1])
+    # X_test = X_test.reshape([X_test.shape[0], -1])
+    # X_dev = X_dev.reshape([X_dev.shape[0], -1])
 
     # subtract the mean value
-    mean_img = np.mean(X_train, axis=0)
+    mean_img = np.mean(X_train, axis=0).astype(np.float32)
     X_train -= mean_img
     X_val -= mean_img
     X_test -= mean_img
@@ -123,15 +122,16 @@ if __name__ == '__main__':
     # X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
 
     # classifier = TwoLayerNet(X_train.shape[1], 500, 10)
-    classifier = FullConnectedNet()
+    # classifier = FullConnectedNet(X_train.shape[1], [100, 100, 100], 10)
+    classifier = ConvolutionalNet(X_train.shape[1:], [(10, 3, 3)], 10)
     tic = time.time()
     # overfit one data point
     # X = X_train[0:2]
     # y = y_train[0:2]
     # state = classifier.train(X, y, X, y, batch_size=2, num_iters=1000, verbose=True)
     state = classifier.train(X_train, y_train, X_val, y_val,
-                             learning_rate=2e-3, learning_rate_decay=0.95,
-                             reg=0.5, num_iters=1000, batch_size=500,
+                             learning_rate=1e-2, learning_rate_decay=0.95,
+                             reg=0, num_iters=2000, batch_size=500,
                              verbose=True)
     toc = time.time()
     print('that takes %fs' % (toc - tic))

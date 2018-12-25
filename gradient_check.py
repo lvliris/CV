@@ -11,6 +11,14 @@ def relative_error(x1, x2):
 
 
 def gradient_check_sparse(f, W, grad, sample=10):
+    """
+    calculate the numerical gradient and compare with the input analytic gradient
+    :param f: a function that takes weights W, data and label as input and output the loss, usually defined by lambda
+    :param W: wights
+    :param grad: analytic gradient obtained from back propagation
+    :param sample: the number of sample place
+    :return: numerical gradient
+    """
     numerical_gradient_W = np.zeros_like(W)
     dW = 0.0001
     rows, cols = W.shape
