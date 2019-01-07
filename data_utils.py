@@ -10,7 +10,7 @@ def load_CIFAR_batch(file):
         dict = pickle.load(fo, encoding='bytes')
         x = dict[b'data']
         y = dict[b'labels']
-        x = x.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype('float')
+        x = x.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype('uint8')
         x = np.array(x)
         y = np.array(y)
         return x, y
@@ -32,6 +32,52 @@ def load_CIFAR10(dir):
     test_data, test_label = load_CIFAR_batch(test_file)
 
     return train_data, train_label, test_data, test_label
+
+
+def get_CIFAR10_data(num_training=49000, num_validation=1000, num_test=10000):
+    """
+    Prepare the cifar10 data for training, sample the given number of data and subtract the mean of images
+    :param num_training: the number of training examples
+    :param num_validation: the number of validation examples, the total number of the first two should not exceed 50000
+    :param num_test: the number of test examples, not exceed 10000
+    :return: X_train, y_train, X_val, y_val, X_test, y_test, shape [N, 32, 32, 3]
+    """
+    X_train, y_train, X_test, y_test = load_CIFAR10('data/cifar-10-batches-py')
+
+    # choose some data for validation
+    mask = range(num_training, num_training + num_validation)
+    X_val = X_train[mask]
+    y_val = y_train[mask]
+
+    # choose some data for training
+    mask = range(num_training)
+    X_train = X_train[mask]
+    y_train = y_train[mask]
+
+    # use the formal num_test data for testing
+    mask = range(num_test)
+    X_test = X_test[mask]
+    y_test = y_test[mask]
+
+    # reshape the data
+    # X_train = X_train.reshape([X_train.shape[0], -1])
+    # X_val = X_val.reshape([X_val.shape[0], -1])
+    # X_test = X_test.reshape([X_test.shape[0], -1])
+    # X_dev = X_dev.reshape([X_dev.shape[0], -1])
+
+    # subtract the mean value
+    '''mean_img = np.mean(X_train, axis=0).astype(np.float32)
+    X_train -= mean_img
+    X_val -= mean_img
+    X_test -= mean_img'''
+
+    # add a bias
+    # X_train = np.hstack([X_train, np.ones((X_train.shape[0], 1))])
+    # X_val = np.hstack([X_val, np.ones((X_val.shape[0], 1))])
+    # X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
+    # X_dev = np.hstack([X_dev, np.ones((X_dev.shape[0], 1))])
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
 
 if __name__ == '__main__':

@@ -21,16 +21,16 @@ def gradient_check_sparse(f, W, grad, sample=10):
     """
     numerical_gradient_W = np.zeros_like(W)
     dW = 0.0001
-    rows, cols = W.shape
+    _, rows, cols, _ = W.shape
     for i in range(rows):
         for j in range(cols):
             delta_W = np.zeros_like(W)
-            delta_W[i, j] = dW
-            numerical_gradient_W[i, j] = (f(W + delta_W) - f(W)) / dW
+            delta_W[0, i, j, 0] = dW
+            numerical_gradient_W[0, i, j, 0] = (f(W + delta_W) - f(W)) / dW
 
     sample_indice = np.random.choice(np.arange(rows), sample)
     for i in sample_indice:
         print('numerical: %f, analytic: %f, relative error: %f' %
-              (numerical_gradient_W[i][0], grad[i][0], relative_error(numerical_gradient_W[i][0], grad[i][0])))
+              (numerical_gradient_W[0, i, :, 0], grad[0, i, :, 0], relative_error(numerical_gradient_W[0, i, :, 0], grad[0, i, :, 0])))
 
     return numerical_gradient_W

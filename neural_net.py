@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from gradient_check import gradient_check_sparse
 from softmax import softmax_loss_naive
 from linear_svm import svm_loss_naive
+from data_utils import get_CIFAR10_data
 
 
 class TwoLayerNet(object):
@@ -181,7 +182,6 @@ class Convolutional(Layer):
                 kernel_w_offset = j_index % self.kernel_size[1]
                 data_matrix[i, j] = data[n_index, data_h_offset + kernel_h_offset, data_w_offset + kernel_w_offset, c_index]
 
-        self.reshaped_bottom = data_matrix
         return data_matrix
 
     def col2im(self, data_matrix):
@@ -213,6 +213,7 @@ class Convolutional(Layer):
     def forward(self, bottom):
         self.bottom_shape = bottom.shape
         data_matrix = self.im2col(bottom)
+        self.reshaped_bottom = data_matrix
         reshaped_kernel = np.reshape(self.W, (self.filters, -1))
         output = np.dot(data_matrix, reshaped_kernel.T)
 
@@ -220,14 +221,17 @@ class Convolutional(Layer):
         n = self.bottom_shape[0]
         output = output.reshape(n, -1, self.filters)
         output = output.transpose((0, 2, 1))
-        output = output.reshape(n, self.output_h, self.output_w, self.filters)
+        # output = output.reshape(n, self.output_h, self.output_w, self.filters)
+        output = output.reshape(n, self.filters, self.output_h, self.output_w)
+        output = output.transpose((0, 2, 3, 1))
 
         return output + self.b
 
     def backward(self, top):
         # reshape the [n, h, w. c] data into 2d-array
         n = self.bottom_shape[0]
-        reshaped_data = top.reshape(n, -1, self.filters)
+        reshaped_data = top.transpose((0, 3, 1, 2))
+        reshaped_data = reshaped_data.reshape(n, self.filters, -1)
         reshaped_data = reshaped_data.transpose((0, 2, 1))
         reshaped_data = reshaped_data.reshape(-1, self.filters)
 
@@ -466,7 +470,7 @@ class SoftmaxWithLoss(Layer):
         self.prob = np.exp(self.data - max_score)
         self.prob /= np.sum(self.prob, axis=1, keepdims=True)
         N = self.data.shape[0]
-        top = -np.sum(np.log(self.prob + 1e-8) * self.label) / N
+        top = -np.sum(np.log(self.prob + 1e-5) * self.label) / N
 
         return top
 
@@ -739,7 +743,7 @@ class ConvolutionalNet(Net):
             self.backward(1)
             self.update()
 
-            if verbose and i % 100 == 0:
+            if verbose and i % 1 == 0:
                 print('iteration %d, loss: %f' % (i, self.loss))
                 y_train_pred = self.predict(data)
                 train_accuracy_history.append(np.mean(label == y_train_pred))
@@ -788,13 +792,14 @@ def init_toy_data(num_input, num_class):
 if __name__ == '__main__':
     input_size = 4
     hidden_size = 10
-    num_classes = 3
+    num_classes = 10
     num_input = 5
 
     # net = init_toy_model(input_size, hidden_size, num_classes)
     # net = FullConnectedNet(input_size, [100], num_classes)
-    net = ConvolutionalNet(input_size=(8, 8, 3), layer_size=[(5, 3, 3)], output_size=num_classes)
-    X, y = init_toy_data(num_input, num_classes)
+    net = ConvolutionalNet(input_size=(32, 32, 3), layer_size=[(5, 3, 3)], output_size=num_classes)
+    # X, y = init_toy_data(num_input, num_classes)
+    X, y, _, _, _, _ = get_CIFAR10_data(5, 5, 5)
 
     '''matrix_y = np.zeros([num_input, num_classes])
     matrix_y[range(num_input), y] = 1
@@ -805,14 +810,29 @@ if __name__ == '__main__':
     f = lambda w: bn_test_net(net, w, X, matrix_y)
     gradient_check_sparse(f, W, grad)'''
 
-    # W = 0.0001 * np.random.randn(input_size, num_classes)
+    def f(W):
+        net.layers[0].W = W
+        num_data = X.shape[0]
+        label_mat = np.zeros([num_data, num_classes])
+        label_mat[range(num_data), y] = 1
+        net.forward(X, label_mat)
+        return net.loss
+
+    W = 0.0001 * np.random.randn(5, 3, 3, 3)
+    net.layers[0].W = W
+    num_data = X.shape[0]
+    label_mat = np.zeros([num_data, num_classes])
+    label_mat[range(num_data), y] = 1
+    net.forward(X, label_mat)
+    net.backward(1)
+    grad = net.layers[0].dW
     # W = np.zeros([input_size, num_classes])
     # loss, grad = svm_loss_naive(W, X, y, 0.0)
     # print loss
     # f = lambda w: svm_loss_naive(w, X, y, 0.0)[0]
-    # gradient_check_sparse(f, W, grad, 10)
+    gradient_check_sparse(f, W, grad, 3)
 
-    state = net.train(X, y, X, y, learning_rate=9e-3, reg=0, num_iters=5000, batch_size=5, verbose=True)
+    state = net.train(X, y, X, y, learning_rate=9e-3, reg=0, num_iters=500, batch_size=5, verbose=True)
     loss = state['loss_history']
     train_acc = state['train_accuracy_history']
     val_acc = state['val_accuracy_history']
